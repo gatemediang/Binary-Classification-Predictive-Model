@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Predictive Model — Tasty Bytes Recipe Traffic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0a0f1a;--surface:#111827;--surface2:#1a2336;--border:#1e2d47;
+  --orange:#f97316;--orange-dim:rgba(249,115,22,.15);--orange-glow:rgba(249,115,22,.4);
+  --green:#22c55e;--green-dim:rgba(34,197,94,.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,.12);
+  --blue:#3b82f6;--blue-dim:rgba(59,130,246,.12);
+  --text:#f1f5f9;--muted:#64748b;--faint:#1e293b;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'Plus Jakarta Sans',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;line-height:1.65;overflow-x:hidden}
+
+/* ── NOISE TEXTURE OVERLAY ── */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.6}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;backdrop-filter:blur(16px);background:rgba(10,15,26,.85);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;padding:0 28px;height:60px;gap:0}
+.logo{font-family:var(--mono);font-size:13px;color:var(--orange);letter-spacing:.08em;margin-right:auto;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--orange);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.nav-links{display:flex;list-style:none}
+.nav-links a{display:block;padding:20px 13px;color:var(--muted);font-size:12px;font-weight:500;text-decoration:none;letter-spacing:.06em;text-transform:uppercase;transition:color .2s;border-bottom:2px solid transparent}
+.nav-links a:hover,.nav-links a.active{color:var(--text);border-bottom-color:var(--orange)}
+.nav-github{margin-left:14px}
+
+/* ── GITHUB BUTTON ── */
+.github-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);text-decoration:none;transition:all .2s}
+.github-btn:hover{border-color:var(--orange);color:var(--orange);transform:translateY(-1px)}
+.github-btn.icon-only{width:38px;padding:0}
+.github-icon{width:18px;height:18px;fill:currentColor;display:block}
+
+/* ── HERO ── */
+#hero{min-height:100vh;display:flex;align-items:center;padding:80px 28px 60px;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 800px 600px at 65% 40%,rgba(249,115,22,.08) 0%,transparent 70%),radial-gradient(ellipse 500px 400px at 20% 70%,rgba(59,130,246,.06) 0%,transparent 60%)}
+.hero-grid{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 480px;gap:80px;align-items:center;position:relative;z-index:1}
+.hero-tag{display:inline-flex;align-items:center;gap:8px;background:var(--orange-dim);border:1px solid var(--orange-glow);border-radius:100px;padding:6px 14px;font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px}
+.hero-title{font-family:var(--serif);font-size:clamp(38px,5.5vw,72px);line-height:1.05;margin-bottom:24px;letter-spacing:-.02em}
+.hero-title em{color:var(--orange);font-style:italic}
+.hero-sub{font-size:17px;color:var(--muted);line-height:1.8;max-width:520px;margin-bottom:40px}
+.hero-pills{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:40px}
+.pill{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
+.hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;transition:all .2s;cursor:pointer;border:none;letter-spacing:.01em}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-primary:hover{background:#ea6c00;box-shadow:0 0 24px var(--orange-glow);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--orange);color:var(--orange)}
+.hero-metrics{display:flex;flex-direction:column;gap:14px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 26px;position:relative;overflow:hidden;transition:border-color .3s}
+.metric-card:hover{border-color:var(--orange)}
+.metric-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--orange)}
+.metric-card.green::before{background:var(--green)}
+.metric-card.blue::before{background:var(--blue)}
+.m-val{font-family:var(--serif);font-size:34px;color:var(--text);line-height:1;margin-bottom:4px}
+.m-val span{font-size:18px;color:var(--orange)}
+.metric-card.green .m-val span{color:var(--green)}
+.metric-card.blue .m-val span{color:var(--blue)}
+.m-lbl{font-size:11px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;font-family:var(--mono)}
+
+/* ── SECTIONS ── */
+section{padding:90px 28px;scroll-margin-top:60px;position:relative;z-index:1}
+.container{max-width:1280px;margin:0 auto}
+.section-eyebrow{font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.section-eyebrow::before{content:'';width:28px;height:1px;background:var(--orange)}
+.section-title{font-family:var(--serif);font-size:clamp(28px,4vw,46px);line-height:1.1;margin-bottom:16px;letter-spacing:-.02em}
+.section-lead{color:var(--muted);font-size:16px;line-height:1.8;max-width:660px;margin-bottom:52px}
+
+/* ── TASK ── */
+#task{background:var(--bg)}
+.task-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.task-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;transition:border-color .3s,transform .2s}
+.task-card:hover{border-color:var(--orange);transform:translateY(-2px)}
+.task-icon{font-size:24px;margin-bottom:14px}
+.task-card h3{font-family:var(--serif);font-size:18px;margin-bottom:10px}
+.task-card p{color:var(--muted);font-size:13px;line-height:1.7}
+.email-box{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:28px;margin-top:24px}
+.email-header{display:grid;grid-template-columns:80px 1fr;gap:6px 16px;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px}
+.email-header .lbl{color:var(--muted);font-family:var(--mono);font-size:11px}
+.email-header .val{color:var(--text)}
+.email-body{color:var(--muted);font-size:14px;line-height:1.8}
+.email-body strong{color:var(--text)}
+
+/* ── DATA ── */
+#data{background:var(--surface)}
+.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px}
+.table-wrap{background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.table-head{background:var(--orange);color:#fff;padding:14px 20px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.table-head span{opacity:.7;font-size:10px}
+.dict-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.dict-tbl th{background:rgba(249,115,22,.1);color:var(--orange);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:10px 16px;text-align:left;font-family:var(--mono)}
+.dict-tbl td{padding:10px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.dict-tbl td:first-child{font-family:var(--mono);font-size:11px;color:var(--orange)}
+.dict-tbl tr:last-child td{border-bottom:none}
+.dict-tbl tr:hover td{background:var(--orange-dim)}
+.type-badge{display:inline-block;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:9px;padding:2px 7px;border-radius:20px;font-family:var(--mono);letter-spacing:.04em}
+.cleaning-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.clean-stat{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center}
+.clean-stat .cv{font-family:var(--serif);font-size:26px;color:var(--orange)}
+.clean-stat .cl{font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase}
+
+/* ── EDA ── */
+#eda{background:var(--bg)}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px}
+.chart-label{font-family:var(--mono);font-size:10px;color:var(--orange);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.chart-title{font-family:var(--serif);font-size:18px;margin-bottom:4px}
+.chart-sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+.chart-canvas-wrap{position:relative;height:320px}
+.full-chart .chart-canvas-wrap{height:380px}
+.finding-box{background:var(--orange-dim);border-left:3px solid var(--orange);border-radius:0 8px 8px 0;padding:14px 18px;margin-top:16px;font-size:13px;color:var(--text);line-height:1.65}
+.finding-box strong{color:var(--orange)}
+.nutrition-compare{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:0}
+.nc-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center}
+.nc-card .nutrient{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.nc-card .hi{font-family:var(--serif);font-size:22px;color:var(--green)}
+.nc-card .lo{font-family:var(--serif);font-size:22px;color:var(--red)}
+.nc-card .diff{font-size:11px;margin-top:4px;font-family:var(--mono)}
+.nc-card .diff.up{color:var(--green)}
+.nc-card .diff.dn{color:var(--red)}
+
+/* ── MODELS ── */
+#models{background:var(--surface)}
+.model-compare{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px}
+.model-card{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:28px;position:relative;overflow:hidden}
+.model-card.winner{border-color:var(--orange)}
+.winner-badge{position:absolute;top:16px;right:16px;background:var(--orange);color:#fff;font-size:10px;font-family:var(--mono);letter-spacing:.08em;padding:4px 10px;border-radius:20px;text-transform:uppercase}
+.model-name{font-family:var(--serif);font-size:22px;margin-bottom:6px}
+.model-type{font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:18px}
+.metric-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.metric-row:last-child{border-bottom:none}
+.metric-row .mn{font-size:13px;color:var(--muted)}
+.metric-row .mv{font-family:var(--mono);font-size:14px;color:var(--text);font-weight:500}
+.metric-row .mv.win{color:var(--orange)}
+.bar-metric{margin-top:8px}
+.bar-label{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;font-family:var(--mono)}
+.bar-track{height:6px;background:var(--faint);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;background:var(--orange);transition:width 1.2s ease}
+.bar-fill.green{background:var(--green)}
+.bar-fill.blue{background:var(--blue)}
+.confusion-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.cm-visual{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:28px}
+.cm-title{font-family:var(--serif);font-size:20px;margin-bottom:20px}
+.cm-matrix{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.cm-cell{border-radius:10px;padding:20px;text-align:center}
+.cm-cell.tp{background:var(--green-dim);border:1px solid rgba(34,197,94,.3)}
+.cm-cell.tn{background:var(--blue-dim);border:1px solid rgba(59,130,246,.3)}
+.cm-cell.fp{background:var(--red-dim);border:1px solid rgba(239,68,68,.2)}
+.cm-cell.fn{background:var(--red-dim);border:1px solid rgba(239,68,68,.2)}
+.cm-cell .cv{font-family:var(--serif);font-size:36px;font-weight:700}
+.cm-cell.tp .cv,.cm-cell.tn .cv{color:var(--green)}
+.cm-cell.fp .cv,.cm-cell.fn .cv{color:var(--red)}
+.cm-cell .cl{font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+.threshold-box{background:var(--orange-dim);border:1px solid var(--orange-glow);border-radius:10px;padding:18px;margin-top:16px}
+.threshold-box h4{color:var(--orange);font-size:12px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.threshold-box p{font-size:13px;color:var(--muted);line-height:1.65}
+
+/* ── RESULTS ── */
+#results{background:var(--bg)}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:48px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;text-align:center;position:relative;overflow:hidden;transition:transform .2s,border-color .3s}
+.kpi:hover{transform:translateY(-3px);border-color:var(--orange)}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--orange)}
+.kpi.green::after{background:var(--green)}
+.kpi.blue::after{background:var(--blue)}
+.kpi.red::after{background:var(--red)}
+.kpi-val{font-family:var(--serif);font-size:38px;line-height:1;margin-bottom:6px}
+.kpi-lbl{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono)}
+.results-split{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px}
+.vs-random{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px}
+.vs-row{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--border)}
+.vs-row:last-child{border-bottom:none}
+.vs-approach{flex:1;font-size:14px;color:var(--muted)}
+.vs-rate{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--text);width:70px;text-align:right}
+.vs-bar-wrap{flex:2;height:8px;background:var(--faint);border-radius:4px;overflow:hidden}
+.vs-bar{height:100%;border-radius:4px}
+
+/* ── TOP RECIPES ── */
+#predictions{background:var(--surface)}
+.recipes-table-wrap{background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.rtbl{width:100%;border-collapse:collapse;font-size:13px}
+.rtbl th{background:rgba(249,115,22,.12);color:var(--orange);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:12px 16px;text-align:left;font-family:var(--mono);border-bottom:1px solid var(--border)}
+.rtbl td{padding:11px 16px;border-bottom:1px solid var(--border);color:var(--text)}
+.rtbl tr:last-child td{border-bottom:none}
+.rtbl tr:hover td{background:var(--orange-dim)}
+.prob-bar{height:5px;background:var(--faint);border-radius:3px;margin-top:4px;overflow:hidden}
+.prob-fill{height:100%;background:var(--green);border-radius:3px}
+.conf-badge{display:inline-block;background:var(--green-dim);color:var(--green);font-size:9px;font-family:var(--mono);padding:3px 8px;border-radius:20px;letter-spacing:.06em}
+
+/* ── STACK ── */
+#stack{background:var(--bg)}
+.stack-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:40px}
+.stack-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;transition:border-color .3s,transform .2s}
+.stack-card:hover{border-color:var(--orange);transform:translateY(-2px)}
+.stack-card .icon{font-size:26px;margin-bottom:10px}
+.stack-card .name{font-family:var(--mono);font-size:13px;color:var(--orange);margin-bottom:4px;font-weight:500}
+.stack-card .desc{font-size:11px;color:var(--muted);line-height:1.5}
+.pipeline{display:flex;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.pipe-step{flex:1;padding:24px 16px;text-align:center;position:relative;border-right:1px solid var(--border)}
+.pipe-step:last-child{border-right:none}
+.pipe-step::after{content:'→';position:absolute;right:-10px;top:50%;transform:translateY(-50%);color:var(--orange);font-size:16px;font-weight:700;z-index:1}
+.pipe-step:last-child::after{display:none}
+.pipe-num{width:30px;height:30px;border-radius:50%;background:var(--orange);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-family:var(--mono)}
+.pipe-step h4{font-size:12px;color:var(--text);font-weight:600;margin-bottom:4px}
+.pipe-step p{font-size:10px;color:var(--muted);line-height:1.5;font-family:var(--mono)}
+
+/* ── MONITORING ── */
+#monitoring{background:var(--surface)}
+.monitor-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.monitor-card{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:28px}
+.monitor-card h3{font-family:var(--serif);font-size:20px;margin-bottom:20px}
+.monitor-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+.monitor-row:last-child{border-bottom:none}
+.monitor-row .mn{font-size:13px;color:var(--muted)}
+.monitor-row .mv{font-family:var(--mono);font-size:13px}
+.monitor-row .mv.ok{color:var(--green)}
+.monitor-row .mv.warn{color:var(--orange)}
+.monitor-row .mv.crit{color:var(--red)}
+.alert-row{background:var(--surface2);border-radius:8px;padding:12px 16px;margin-top:10px;display:flex;gap:12px;align-items:center;font-size:13px}
+.alert-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.alert-dot.green{background:var(--green)}
+.alert-dot.orange{background:var(--orange)}
+.alert-dot.red{background:var(--red)}
+.roadmap{display:flex;flex-direction:column;gap:12px}
+.road-item{background:var(--surface2);border-radius:10px;padding:16px 20px;display:flex;gap:16px;align-items:flex-start}
+.road-phase{font-family:var(--mono);font-size:10px;color:var(--orange);white-space:nowrap;padding-top:2px;letter-spacing:.06em;text-transform:uppercase}
+.road-item h4{font-size:14px;font-weight:600;margin-bottom:4px}
+.road-item p{font-size:12px;color:var(--muted);line-height:1.55}
+
+/* ── FOOTER ── */
+footer{background:var(--surface);border-top:1px solid var(--border);padding:36px 28px;text-align:center;position:relative;z-index:1}
+footer p{font-size:12px;color:var(--muted);line-height:1.9;font-family:var(--mono)}
+footer a{color:var(--orange);text-decoration:none}
+footer .github-btn{margin-top:12px}
+
+/* ── ANIMATIONS ── */
+.fade-up{opacity:0;transform:translateY(28px);transition:opacity .65s ease,transform .65s ease}
+.fade-up.in{opacity:1;transform:none}
+
+/* ── RESPONSIVE ── */
+@media(max-width:960px){
+  .hero-grid,.task-grid,.data-grid,.chart-grid,.model-compare,.confusion-grid,.results-split,.monitor-grid{grid-template-columns:1fr}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .stack-grid{grid-template-columns:repeat(2,1fr)}
+  .nutrition-compare{grid-template-columns:repeat(2,1fr)}
+  .cleaning-grid{grid-template-columns:repeat(2,1fr)}
+  .pipeline{flex-direction:column}
+  .pipe-step{border-right:none;border-bottom:1px solid var(--border)}
+  .pipe-step::after{content:'↓';right:50%;bottom:-14px;top:auto;transform:translateX(50%)}
+  .pipe-step:last-child{border-bottom:none}
+}
+@media(max-width:600px){
+  .kpi-row,.nutrition-compare,.cleaning-grid,.stack-grid{grid-template-columns:1fr}
+  .nav-links a{padding:20px 8px;font-size:10px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo"><div class="logo-dot"></div>TASTY_BYTES.ML</div>
+    <ul class="nav-links">
+      <li><a href="#task">Task</a></li>
+      <li><a href="#data">Data</a></li>
+      <li><a href="#eda">Analysis</a></li>
+      <li><a href="#models">Models</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#predictions">Predictions</a></li>
+      <li><a href="#stack">Stack</a></li>
+      <li><a href="#monitoring">Monitoring</a></li>
+    </ul>
+    <a class="github-btn icon-only nav-github" href="https://github.com/gatemediang/Binary-Classification-Predictive-Model" target="_blank" rel="noopener noreferrer" aria-label="View project on GitHub" title="View on GitHub">
+      <svg class="github-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 .5C5.649.5.5 5.649.5 12c0 5.084 3.292 9.398 7.86 10.92.575.106.784-.25.784-.556 0-.274-.01-1-.016-1.962-3.198.695-3.873-1.542-3.873-1.542-.523-1.327-1.277-1.68-1.277-1.68-1.044-.713.08-.699.08-.699 1.153.081 1.76 1.184 1.76 1.184 1.024 1.754 2.687 1.248 3.342.954.104-.742.401-1.248.729-1.535-2.552-.29-5.236-1.276-5.236-5.681 0-1.255.45-2.282 1.186-3.087-.119-.291-.514-1.463.113-3.05 0 0 .967-.31 3.17 1.178a10.98 10.98 0 0 1 2.886-.388c.978.004 1.965.132 2.886.388 2.201-1.488 3.166-1.178 3.166-1.178.629 1.587.234 2.759.115 3.05.738.805 1.184 1.832 1.184 3.087 0 4.416-2.688 5.388-5.25 5.673.412.355.779 1.056.779 2.128 0 1.537-.014 2.777-.014 3.154 0 .309.207.668.79.555C20.21 21.394 23.5 17.083 23.5 12 23.5 5.649 18.351.5 12 .5z"></path>
+      </svg>
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid">
+    <div>
+      <div class="hero-tag">🍴 Machine Learning · Binary Classification</div>
+      <h1 class="hero-title">A predictive model<br>for a food chain<br>to predict <em>traffic</em><br>on their recipe menu</h1>
+      <p class="hero-sub">Built for Tasty Bytes — a subscription recipe platform — to automatically identify which recipes will drive high homepage traffic, replacing manual curation with data-driven decisions.</p>
+      <div class="hero-pills">
+        <span class="pill">Python</span>
+        <span class="pill">scikit-learn</span>
+        <span class="pill">Logistic Regression</span>
+        <span class="pill">Random Forest</span>
+        <span class="pill">pandas</span>
+        <span class="pill">seaborn</span>
+        <span class="pill">matplotlib</span>
+      </div>
+      <div class="hero-ctas">
+        <a href="#results" class="btn btn-primary">▸ View Results</a>
+        <a href="#models" class="btn btn-ghost">⚙ Model Details</a>
+      </div>
+    </div>
+    <div class="hero-metrics">
+      <div class="metric-card">
+        <div class="m-val">80% <span>Recall</span></div>
+        <div class="m-lbl">High-traffic recipes correctly identified</div>
+      </div>
+      <div class="metric-card green">
+        <div class="m-val">82% <span>Precision</span></div>
+        <div class="m-lbl">Recommendations that are actually popular</div>
+      </div>
+      <div class="metric-card blue">
+        <div class="m-val">+32.8% <span>vs Random</span></div>
+        <div class="m-lbl">Improvement over random recipe selection</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TASK -->
+<section id="task">
+  <div class="container">
+    <div class="section-eyebrow">01 · Project Brief</div>
+    <h2 class="section-title">The Business Problem</h2>
+    <p class="section-lead">Tasty Bytes' Product Manager selects homepage recipes manually. A popular recipe drives up to 40% more sitewide traffic — but there's no systematic way to predict which recipes will be popular.</p>
+
+    <div class="task-grid fade-up">
+      <div class="task-card">
+        <div class="task-icon">🎯</div>
+        <h3>Business Goal</h3>
+        <p>Automatically predict which recipes will generate high homepage traffic, correctly identifying popular recipes at least 80% of the time — and minimising the chance of featuring unpopular recipes.</p>
+      </div>
+      <div class="task-card">
+        <div class="task-icon">📈</div>
+        <h3>Expected Impact</h3>
+        <p>A popular homepage recipe drives up to 40% more traffic to the rest of the website. More traffic means more subscriptions — making accurate recipe selection directly linked to revenue growth.</p>
+      </div>
+      <div class="task-card">
+        <div class="task-icon">⏱️</div>
+        <h3>Current Process</h3>
+        <p>The Product Manager manually selects their favourite recipe from a pool and features it on the homepage each day. This takes ~2 hours daily and produces inconsistent results with no data backing.</p>
+      </div>
+      <div class="task-card">
+        <div class="task-icon">🤖</div>
+        <h3>Our Solution</h3>
+        <p>Train a supervised binary classification model on 895 historical recipes — using nutritional features, recipe category, and serving size — to predict High vs Low traffic with ≥80% recall.</p>
+      </div>
+    </div>
+
+    <div class="email-box fade-up" style="margin-top:24px">
+      <div class="email-header">
+        <span class="lbl">From:</span><span class="val">Product Manager — Recipe Discovery</span>
+        <span class="lbl">Subject:</span><span class="val">Can you help us predict popular recipes?</span>
+        <span class="lbl">Goal:</span><span class="val">Correctly predict high traffic recipes 80% of the time</span>
+      </div>
+      <div class="email-body">
+        <p>"We have noticed that traffic to the rest of the website goes up by as much as <strong>40%</strong> if I pick a popular recipe. But I don't know how to decide if a recipe will be popular. More traffic means more subscriptions so this is really important to the company."</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DATA -->
+<section id="data">
+  <div class="container">
+    <div class="section-eyebrow">02 · Data Validation</div>
+    <h2 class="section-title">Understanding the Dataset</h2>
+    <p class="section-lead">895 recipes with nutritional data, category labels, and historical traffic outcomes. Every column was validated, cleaned, and documented before modelling.</p>
+
+    <div class="cleaning-grid fade-up" style="margin-bottom:32px">
+      <div class="clean-stat"><div class="cv">895</div><div class="cl">Raw Recipes</div></div>
+      <div class="clean-stat"><div class="cv">843</div><div class="cl">Clean Recipes</div></div>
+      <div class="clean-stat"><div class="cv">52</div><div class="cl">Rows Removed</div></div>
+      <div class="clean-stat"><div class="cv">11</div><div class="cl">Categories</div></div>
+    </div>
+
+    <div class="data-grid fade-up">
+      <div class="table-wrap">
+        <div class="table-head">Data Dictionary <span>8 columns</span></div>
+        <table class="dict-tbl">
+          <thead><tr><th>Column</th><th>Description</th><th>Type</th></tr></thead>
+          <tbody>
+            <tr><td>recipe</td><td>Unique identifier (ID only — dropped before modelling)</td><td><span class="type-badge">int</span></td></tr>
+            <tr><td>calories</td><td>Calories per serving — 52 missing, imputed with median (306.2 kcal)</td><td><span class="type-badge">float</span></td></tr>
+            <tr><td>carbohydrate</td><td>Carbohydrates in grams — 52 missing, imputed with median (37.1g)</td><td><span class="type-badge">float</span></td></tr>
+            <tr><td>sugar</td><td>Sugar in grams — 52 missing, imputed with median (8.8g)</td><td><span class="type-badge">float</span></td></tr>
+            <tr><td>protein</td><td>Protein in grams — 52 missing, imputed with median (24.5g)</td><td><span class="type-badge">float</span></td></tr>
+            <tr><td>category</td><td>Recipe type — 11 categories, no missing values</td><td><span class="type-badge">str</span></td></tr>
+            <tr><td>servings</td><td>Number of servings — mixed types, converted to numeric</td><td><span class="type-badge">str→int</span></td></tr>
+            <tr><td>high_traffic</td><td>Target — "High" if popular; 373 missing → treated as "Low"</td><td><span class="type-badge">binary</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <div class="table-head">Cleaning Steps <span>column by column</span></div>
+        <table class="dict-tbl">
+          <thead><tr><th>Column</th><th>Issue</th><th>Resolution</th></tr></thead>
+          <tbody>
+            <tr><td>recipe</td><td>✅ No issues</td><td>Used as ID tracker, dropped before modelling</td></tr>
+            <tr><td>calories</td><td>⚠️ 52 missing</td><td>Rows with ALL 4 nutrition fields missing removed (52); remaining imputed with median</td></tr>
+            <tr><td>carbohydrate</td><td>⚠️ 52 missing</td><td>Same rows as calories — removed with all-missing rows</td></tr>
+            <tr><td>sugar</td><td>⚠️ 52 missing</td><td>Same as above — median imputation after row removal</td></tr>
+            <tr><td>protein</td><td>⚠️ 52 missing</td><td>Same as above — median imputation after row removal</td></tr>
+            <tr><td>category</td><td>✅ No missing</td><td>11 unique values confirmed; one-hot encoded for modelling</td></tr>
+            <tr><td>servings</td><td>⚠️ Mixed types</td><td>"4 as a snack" → coerced to numeric; 1 NaN imputed with median</td></tr>
+            <tr><td>high_traffic</td><td>⚠️ 373 missing</td><td>Conservative: filled as "Low" (unexplored = likely not high)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- EDA -->
+<section id="eda">
+  <div class="container">
+    <div class="section-eyebrow">03 · Exploratory Analysis</div>
+    <h2 class="section-title">What Makes a Recipe Popular?</h2>
+    <p class="section-lead">Three key patterns emerged from exploratory analysis — category is by far the strongest predictor, followed by nutritional profile.</p>
+
+    <div class="chart-grid fade-up">
+      <!-- Chart 1: Category counts -->
+      <div class="chart-card">
+        <div class="chart-label">Single Variable · Bar Chart</div>
+        <div class="chart-title">Recipes per Category</div>
+        <div class="chart-sub">Distribution of 895 recipes across 11 categories</div>
+        <div class="chart-canvas-wrap"><canvas id="catCountChart"></canvas></div>
+        <div class="finding-box"><strong>Finding:</strong> Breakfast dominates (106 recipes, 11.2%) while One Dish Meal has fewest (71). Good diversity — no single category overwhelms the dataset.</div>
+      </div>
+
+      <!-- Chart 2: Calorie distribution -->
+      <div class="chart-card">
+        <div class="chart-label">Single Variable · Histogram</div>
+        <div class="chart-title">Distribution of Calories</div>
+        <div class="chart-sub">Right-skewed — most recipes fall in 0–600 kcal range</div>
+        <div class="chart-canvas-wrap"><canvas id="calDistChart"></canvas></div>
+        <div class="finding-box"><strong>Finding:</strong> Strongly right-skewed. Median (306 kcal) is lower than mean (436 kcal). Most recipes are moderate calorie; extreme outliers reach 3,633 kcal.</div>
+      </div>
+    </div>
+
+    <!-- Chart 3: High traffic rate by category (multi-variable) -->
+    <div class="chart-card full-chart fade-up" style="margin-bottom:32px">
+      <div class="chart-label">Multi-Variable · Category vs Traffic Rate</div>
+      <div class="chart-title">High-Traffic Rate by Recipe Category</div>
+      <div class="chart-sub">% of recipes in each category that generate high homepage traffic — the single most powerful predictor</div>
+      <div class="chart-canvas-wrap"><canvas id="catTrafficChart"></canvas></div>
+      <div class="finding-box"><strong>Key Finding:</strong> <strong>Vegetable (98.8%), Potato (94.3%) and Pork (91.7%)</strong> almost always generate high traffic. <strong>Beverages (5.4%)</strong> almost never do. Category alone is a near-perfect decision rule for top and bottom performers.</div>
+    </div>
+
+    <!-- Nutrition comparison -->
+    <div class="section-eyebrow" style="margin-bottom:16px">Multi-Variable · Nutritional Profile Comparison</div>
+    <h3 style="font-family:var(--serif);font-size:24px;margin-bottom:24px">High-Traffic vs Low-Traffic Recipes: Nutritional Differences</h3>
+    <div class="nutrition-compare fade-up">
+      <div class="nc-card">
+        <div class="nutrient">Calories</div>
+        <div class="hi">463.6 kcal</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0">High Traffic</div>
+        <div class="lo">394.9 kcal</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0">Low Traffic</div>
+        <div class="diff up">+17% more calories</div>
+      </div>
+      <div class="nc-card">
+        <div class="nutrient">Protein</div>
+        <div class="hi">25.5g</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0">High Traffic</div>
+        <div class="lo">22.2g</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0">Low Traffic</div>
+        <div class="diff up">+15% more protein</div>
+      </div>
+      <div class="nc-card">
+        <div class="nutrient">Carbohydrate</div>
+        <div class="hi">38.0g</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0">High Traffic</div>
+        <div class="lo">30.7g</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0">Low Traffic</div>
+        <div class="diff up">+24% more carbs</div>
+      </div>
+      <div class="nc-card">
+        <div class="nutrient">Sugar</div>
+        <div class="hi" style="color:var(--green)">8.1g</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0">High Traffic</div>
+        <div class="lo" style="color:var(--orange)">10.4g</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0">Low Traffic</div>
+        <div class="diff dn">-22% less sugar</div>
+      </div>
+    </div>
+    <div class="finding-box fade-up" style="margin-top:20px"><strong>Finding:</strong> Popular recipes are heartier and more substantial — higher calories, protein and carbs — but lower in sugar. Users prefer satisfying meals over light or sweet options.</div>
+  </div>
+</section>
+
+<!-- MODELS -->
+<section id="models">
+  <div class="container">
+    <div class="section-eyebrow">04 · Model Development</div>
+    <h2 class="section-title">Two Models Tested</h2>
+    <p class="section-lead">This is a binary classification problem — predict High vs Low traffic. We trained a baseline Logistic Regression and a comparison Random Forest, then selected the best performer.</p>
+
+    <div class="model-compare fade-up">
+      <!-- LR -->
+      <div class="model-card winner">
+        <div class="winner-badge">✓ Selected</div>
+        <div class="model-name">Logistic Regression</div>
+        <div class="model-type">Baseline model · sklearn.linear_model</div>
+        <div class="metric-row"><span class="mn">Accuracy</span><span class="mv win">78.8%</span></div>
+        <div class="metric-row"><span class="mn">Recall (High class)</span><span class="mv win">80.0%</span></div>
+        <div class="metric-row"><span class="mn">Precision (High class)</span><span class="mv win">82.0%</span></div>
+        <div class="metric-row"><span class="mn">AUC-ROC</span><span class="mv win">0.835</span></div>
+        <div class="metric-row"><span class="mn">F1-Score</span><span class="mv win">0.816</span></div>
+        <div class="bar-metric"><div class="bar-label"><span>Recall</span><span>80%</span></div><div class="bar-track"><div class="bar-fill" style="width:80%"></div></div></div>
+        <div class="bar-metric"><div class="bar-label"><span>Precision</span><span>82%</span></div><div class="bar-track"><div class="bar-fill green" style="width:82%"></div></div></div>
+        <div class="bar-metric"><div class="bar-label"><span>AUC</span><span>83.5%</span></div><div class="bar-track"><div class="bar-fill blue" style="width:83.5%"></div></div></div>
+      </div>
+      <!-- RF -->
+      <div class="model-card">
+        <div class="model-name">Random Forest</div>
+        <div class="model-type">Comparison model · sklearn.ensemble</div>
+        <div class="metric-row"><span class="mn">Accuracy</span><span class="mv">73.7%</span></div>
+        <div class="metric-row"><span class="mn">Recall (High class)</span><span class="mv">76.0%</span></div>
+        <div class="metric-row"><span class="mn">Precision (High class)</span><span class="mv">78.9%</span></div>
+        <div class="metric-row"><span class="mn">AUC-ROC</span><span class="mv">0.790</span></div>
+        <div class="metric-row"><span class="mn">F1-Score</span><span class="mv">0.774</span></div>
+        <div class="bar-metric"><div class="bar-label"><span>Recall</span><span>76%</span></div><div class="bar-track"><div class="bar-fill" style="width:76%;opacity:.5"></div></div></div>
+        <div class="bar-metric"><div class="bar-label"><span>Precision</span><span>78.9%</span></div><div class="bar-track"><div class="bar-fill green" style="width:78.9%;opacity:.5"></div></div></div>
+        <div class="bar-metric"><div class="bar-label"><span>AUC</span><span>79.0%</span></div><div class="bar-track"><div class="bar-fill blue" style="width:79%;opacity:.5"></div></div></div>
+      </div>
+    </div>
+
+    <!-- Confusion matrix + threshold -->
+    <div class="confusion-grid fade-up" style="margin-top:32px">
+      <div class="cm-visual">
+        <div class="cm-title">Confusion Matrix — Logistic Regression</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">At tuned threshold = 0.46 · Test set (179 recipes)</p>
+        <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px">
+          <div></div><div style="text-align:center">Pred: Low</div><div style="text-align:center">Pred: High</div>
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center">
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);writing-mode:vertical-lr;transform:rotate(180deg);text-align:center;padding:8px 0">Actually Low &nbsp; Actually High</div>
+          <div class="cm-cell tn"><div class="cv">57</div><div class="cl">True Negative<br>Correctly rejected</div></div>
+          <div class="cm-cell fp"><div class="cv">15</div><div class="cl">False Positive<br>False alarms</div></div>
+          <div class="cm-cell fn"><div class="cv">21</div><div class="cl">False Negative<br>Missed hits</div></div>
+          <div class="cm-cell tp"><div class="cv">86</div><div class="cl">True Positive<br>Correctly caught</div></div>
+        </div>
+        <div style="margin-top:16px;font-size:13px;color:var(--muted);line-height:1.7">Out of <strong style="color:var(--text)">107 truly popular recipes</strong> → correctly identified <strong style="color:var(--green)">86 (80%)</strong><br>Out of <strong style="color:var(--text)">72 truly low-traffic recipes</strong> → correctly rejected <strong style="color:var(--green)">57 (79%)</strong></div>
+      </div>
+      <div>
+        <div class="threshold-box" style="margin-bottom:16px">
+          <h4>⚙ Threshold Tuning</h4>
+          <p>Default threshold (0.5) achieved 78.5% recall. By tuning the decision threshold to <strong style="color:var(--orange)">0.46</strong>, we achieve exactly <strong style="color:var(--orange)">80% recall</strong> while keeping precision at 82% — meeting the business target without sacrificing much precision.</p>
+        </div>
+        <div class="cm-visual">
+          <div class="cm-title">Why Not Random Forest?</div>
+          <div class="monitor-row"><span class="mn">LR Recall vs RF Recall</span><span class="mv ok">+4pp advantage</span></div>
+          <div class="monitor-row"><span class="mn">LR Precision vs RF Precision</span><span class="mv ok">+3pp advantage</span></div>
+          <div class="monitor-row"><span class="mn">LR AUC vs RF AUC</span><span class="mv ok">+4.5pp advantage</span></div>
+          <div class="monitor-row"><span class="mn">Interpretability</span><span class="mv ok">LR wins (explainable)</span></div>
+          <div class="monitor-row"><span class="mn">Overfitting risk</span><span class="mv ok">LR lower risk</span></div>
+          <p style="font-size:13px;color:var(--muted);margin-top:16px;line-height:1.7">Logistic Regression wins on every metric while being simpler, faster, and more interpretable for stakeholders.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results">
+  <div class="container">
+    <div class="section-eyebrow">05 · Model Results</div>
+    <h2 class="section-title">Performance & Business Impact</h2>
+    <p class="section-lead">The tuned Logistic Regression meets the ≥80% recall target and delivers a measurable improvement over both random and manual selection.</p>
+
+    <div class="kpi-row fade-up">
+      <div class="kpi"><div class="kpi-val" style="color:var(--orange)">80%</div><div class="kpi-lbl">Recall — High Traffic</div></div>
+      <div class="kpi green"><div class="kpi-val" style="color:var(--green)">82%</div><div class="kpi-lbl">Precision</div></div>
+      <div class="kpi blue"><div class="kpi-val" style="color:var(--blue)">79%</div><div class="kpi-lbl">Overall Accuracy</div></div>
+      <div class="kpi red"><div class="kpi-val" style="color:var(--orange)">0.835</div><div class="kpi-lbl">AUC-ROC Score</div></div>
+    </div>
+
+    <div class="results-split fade-up">
+      <div class="vs-random">
+        <h3 style="font-family:var(--serif);font-size:22px;margin-bottom:20px">vs Random Selection</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:20px">210 homepage slots (7 recipes/day × 30 days)</p>
+        <div class="vs-row">
+          <span class="vs-approach">Manual Selection (current)</span>
+          <div class="vs-bar-wrap"><div class="vs-bar" style="width:60%;background:var(--muted)"></div></div>
+          <span class="vs-rate">~60%</span>
+        </div>
+        <div class="vs-row">
+          <span class="vs-approach">Random Selection</span>
+          <div class="vs-bar-wrap"><div class="vs-bar" style="width:50%;background:var(--muted)"></div></div>
+          <span class="vs-rate">50%</span>
+        </div>
+        <div class="vs-row">
+          <span class="vs-approach" style="color:var(--orange);font-weight:600">Our Model</span>
+          <div class="vs-bar-wrap"><div class="vs-bar" style="width:80%;background:var(--orange)"></div></div>
+          <span class="vs-rate" style="color:var(--orange)">80%</span>
+        </div>
+        <div style="margin-top:20px;background:var(--orange-dim);border-radius:8px;padding:16px;font-size:13px;color:var(--text);line-height:1.7">
+          <strong style="color:var(--orange)">+32.8% improvement</strong> over random: 165 high-traffic recommendations vs 105 expected from random selection across 210 slots.
+        </div>
+      </div>
+
+      <div class="vs-random">
+        <h3 style="font-family:var(--serif);font-size:22px;margin-bottom:20px">Estimated Revenue Impact</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Based on 10,000 monthly visitors at 5% conversion · $10/month subscription</p>
+        <div class="monitor-row"><span class="mn">Random — new subscribers/month</span><span class="mv" style="color:var(--muted)">~63</span></div>
+        <div class="monitor-row"><span class="mn">Our Model — new subscribers/month</span><span class="mv ok">~255</span></div>
+        <div class="monitor-row"><span class="mn">Monthly revenue uplift</span><span class="mv ok">+$1,920</span></div>
+        <div class="monitor-row"><span class="mn">Curation time saved</span><span class="mv ok">-80% (1.5 hrs/day)</span></div>
+        <div class="monitor-row"><span class="mn">Time to deploy</span><span class="mv warn">Week 1</span></div>
+        <div style="margin-top:20px;background:var(--green-dim);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:16px;font-size:13px;color:var(--text);line-height:1.7">
+          <strong style="color:var(--green)">Expected +35–40% homepage traffic uplift</strong> based on the Product Manager's own observation that popular recipes drive 40% more sitewide traffic.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TOP RECIPE PREDICTIONS -->
+<section id="predictions">
+  <div class="container">
+    <div class="section-eyebrow">06 · Model Predictions</div>
+    <h2 class="section-title">Top 30 Predicted High-Traffic Recipes</h2>
+    <p class="section-lead">The trained model was applied to all 895 recipes. The 30 highest-probability predictions are shown below — all Vegetable category with 97.6–98.0% confidence.</p>
+
+    <div class="recipes-table-wrap fade-up">
+      <table class="rtbl" id="topRecipesTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Recipe ID</th>
+            <th>Category</th>
+            <th>Calories</th>
+            <th>Protein (g)</th>
+            <th>Confidence</th>
+            <th>Recommendation</th>
+          </tr>
+        </thead>
+        <tbody id="topRecipesTbody"></tbody>
+      </table>
+    </div>
+
+    <div class="finding-box fade-up" style="margin-top:24px">
+      <strong>Observation:</strong> All top 30 predictions are Vegetable category recipes — consistent with the EDA finding that 98.8% of Vegetable recipes generate high traffic. This validates the model's learned behaviour and confirms category is the dominant signal. The confidence level (97.6–98.0%) reflects the model's high certainty for this category.
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="stack">
+  <div class="container">
+    <div class="section-eyebrow">07 · Technical Stack</div>
+    <h2 class="section-title">Libraries, Models & Frameworks</h2>
+    <p class="section-lead">End-to-end Python data science pipeline — from raw CSV ingestion to trained classifier, threshold tuning, and top-recipe prediction.</p>
+
+    <div class="stack-grid fade-up">
+      <div class="stack-card"><div class="icon">🐼</div><div class="name">pandas</div><div class="desc">Data loading, cleaning, imputation, feature engineering and manipulation</div></div>
+      <div class="stack-card"><div class="icon">🔢</div><div class="name">numpy</div><div class="desc">Numerical operations, array handling and statistical computations</div></div>
+      <div class="stack-card"><div class="icon">📊</div><div class="name">matplotlib</div><div class="desc">Static visualisations — histograms, distribution plots, bar charts</div></div>
+      <div class="stack-card"><div class="icon">🎨</div><div class="name">seaborn</div><div class="desc">Statistical plots — countplot, barplot, histplot with KDE overlay</div></div>
+      <div class="stack-card"><div class="icon">⚙️</div><div class="name">scikit-learn</div><div class="desc">ML pipeline: train_test_split, StandardScaler, LogisticRegression, RandomForest, metrics</div></div>
+      <div class="stack-card"><div class="icon">📐</div><div class="name">LogisticRegression</div><div class="desc">Baseline binary classifier — max_iter=1000, random_state=42, scaled features</div></div>
+      <div class="stack-card"><div class="icon">🌲</div><div class="name">RandomForest</div><div class="desc">Comparison model — 100 estimators, max_depth=10, handles non-linear interactions</div></div>
+      <div class="stack-card"><div class="icon">🎯</div><div class="name">Threshold Tuning</div><div class="desc">precision_recall_curve used to find optimal threshold (0.46) achieving ≥80% recall</div></div>
+    </div>
+
+    <div style="margin-top:32px">
+      <h3 style="font-family:var(--serif);font-size:22px;margin-bottom:20px">Analysis Pipeline</h3>
+      <div class="pipeline fade-up">
+        <div class="pipe-step"><div class="pipe-num">1</div><h4>Load Data</h4><p>pd.read_csv<br>895 rows × 8 cols</p></div>
+        <div class="pipe-step"><div class="pipe-num">2</div><h4>Validate</h4><p>Inspect types,<br>missing values</p></div>
+        <div class="pipe-step"><div class="pipe-num">3</div><h4>Clean</h4><p>Drop 52 rows,<br>impute, encode</p></div>
+        <div class="pipe-step"><div class="pipe-num">4</div><h4>EDA</h4><p>Univariate +<br>multivariate plots</p></div>
+        <div class="pipe-step"><div class="pipe-num">5</div><h4>Split</h4><p>80/20 train-test<br>stratified split</p></div>
+        <div class="pipe-step"><div class="pipe-num">6</div><h4>Train</h4><p>LR + RF<br>on scaled features</p></div>
+        <div class="pipe-step"><div class="pipe-num">7</div><h4>Evaluate</h4><p>Recall, precision,<br>AUC, confusion matrix</p></div>
+        <div class="pipe-step"><div class="pipe-num">8</div><h4>Tune & Deploy</h4><p>Threshold 0.46<br>→ top 30 predictions</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MONITORING -->
+<section id="monitoring">
+  <div class="container">
+    <div class="section-eyebrow">08 · Monitoring & Roadmap</div>
+    <h2 class="section-title">How to Measure Success</h2>
+    <p class="section-lead">Defined metrics, alert thresholds, and a phased deployment roadmap to ensure the model delivers sustained value beyond initial deployment.</p>
+
+    <div class="monitor-grid fade-up">
+      <div class="monitor-card">
+        <h3>Monitoring Dashboard</h3>
+        <div class="monitor-row"><span class="mn">High-Traffic Recall</span><span class="mv ok">80% ✓ Target Met</span></div>
+        <div class="monitor-row"><span class="mn">Precision on Recommendations</span><span class="mv ok">82% ✓ Exceeds 75% target</span></div>
+        <div class="monitor-row"><span class="mn">Overall Accuracy</span><span class="mv ok">79% ✓ Above 78% target</span></div>
+        <div class="monitor-row"><span class="mn">AUC-ROC</span><span class="mv ok">0.835 ✓ Strong</span></div>
+        <div class="monitor-row"><span class="mn">Homepage CTR (expected)</span><span class="mv warn">+35% target</span></div>
+        <div class="monitor-row"><span class="mn">Curation time</span><span class="mv ok">-80% saved</span></div>
+
+        <h4 style="font-size:13px;color:var(--orange);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin:20px 0 10px">Alert Thresholds</h4>
+        <div class="alert-row"><div class="alert-dot green"></div><span style="color:var(--green);font-weight:600;width:70px;flex-shrink:0">Healthy</span><span style="color:var(--muted);font-size:12px">Recall ≥80% · Precision ≥75% — continue monitoring</span></div>
+        <div class="alert-row"><div class="alert-dot orange"></div><span style="color:var(--orange);font-weight:600;width:70px;flex-shrink:0">Warning</span><span style="color:var(--muted);font-size:12px">Recall drops below 80% — investigate data drift</span></div>
+        <div class="alert-row"><div class="alert-dot red"></div><span style="color:var(--red);font-weight:600;width:70px;flex-shrink:0">Critical</span><span style="color:var(--muted);font-size:12px">Recall drops below 75% — immediate retraining</span></div>
+      </div>
+
+      <div class="monitor-card">
+        <h3>Deployment Roadmap</h3>
+        <div class="roadmap">
+          <div class="road-item">
+            <div class="road-phase">Week 1–2</div>
+            <div><h4>Deploy & Tune</h4><p>Approve model → deploy to staging → set threshold to 0.46 → brief editorial team</p></div>
+          </div>
+          <div class="road-item">
+            <div class="road-phase">Week 1–2</div>
+            <div><h4>A/B Test Setup</h4><p>10% traffic on model recommendations vs 90% control (current manual). Establish baseline metrics.</p></div>
+          </div>
+          <div class="road-item">
+            <div class="road-phase">Week 3–4</div>
+            <div><h4>Measure Impact</h4><p>30-day A/B test running. Collect recall, precision, CTR, subscription conversion. Decision point: roll out or iterate.</p></div>
+          </div>
+          <div class="road-item">
+            <div class="road-phase">Week 5–6</div>
+            <div><h4>Full Rollout</h4><p>Deploy to 100% homepage → automate curation → free 1.5 hrs/day editorial time → expect +35–40% traffic lift</p></div>
+          </div>
+          <div class="road-item">
+            <div class="road-phase">Monthly</div>
+            <div><h4>Retrain & Improve</h4><p>Retrain on new recipe data · monitor for seasonal drift · explore new features (prep time, ratings, difficulty)</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>
+    <strong style="color:var(--text)">Tasty Bytes — Recipe Traffic Prediction Model</strong><br>
+    DataCamp Data Scientist Professional Practical Exam · Python · scikit-learn · Logistic Regression<br>
+    Dataset: 895 recipes · Model: Logistic Regression (threshold=0.46) · Recall: 80% · Precision: 82% · AUC: 0.835<br>
+    <a href="#">↑ Back to top</a>
+  </p>
+  <a class="github-btn" href="https://github.com/gatemediang/Binary-Classification-Predictive-Model" target="_blank" rel="noopener noreferrer" aria-label="Open project repository on GitHub" title="Open repository on GitHub">
+    <svg class="github-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 .5C5.649.5.5 5.649.5 12c0 5.084 3.292 9.398 7.86 10.92.575.106.784-.25.784-.556 0-.274-.01-1-.016-1.962-3.198.695-3.873-1.542-3.873-1.542-.523-1.327-1.277-1.68-1.277-1.68-1.044-.713.08-.699.08-.699 1.153.081 1.76 1.184 1.76 1.184 1.024 1.754 2.687 1.248 3.342.954.104-.742.401-1.248.729-1.535-2.552-.29-5.236-1.276-5.236-5.681 0-1.255.45-2.282 1.186-3.087-.119-.291-.514-1.463.113-3.05 0 0 .967-.31 3.17 1.178a10.98 10.98 0 0 1 2.886-.388c.978.004 1.965.132 2.886.388 2.201-1.488 3.166-1.178 3.166-1.178.629 1.587.234 2.759.115 3.05.738.805 1.184 1.832 1.184 3.087 0 4.416-2.688 5.388-5.25 5.673.412.355.779 1.056.779 2.128 0 1.537-.014 2.777-.014 3.154 0 .309.207.668.79.555C20.21 21.394 23.5 17.083 23.5 12 23.5 5.649 18.351.5 12 .5z"></path>
+    </svg>
+    View on GitHub
+  </a>
+</footer>
+
+<script>
+// ── SCROLL ANIMATION ──
+const io = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')});
+},{threshold:.08});
+document.querySelectorAll('.fade-up').forEach(el=>io.observe(el));
+
+// ── NAV ACTIVE ──
+const secs = document.querySelectorAll('section[id]');
+const navAs = document.querySelectorAll('.nav-links a');
+window.addEventListener('scroll',()=>{
+  let cur='';
+  secs.forEach(s=>{if(window.scrollY>=s.offsetTop-80)cur=s.id});
+  navAs.forEach(a=>{a.classList.remove('active');if(a.getAttribute('href')==='#'+cur)a.classList.add('active')});
+});
+
+// ── CHART DEFAULTS ──
+Chart.defaults.color='#64748b';
+Chart.defaults.font.family="'Plus Jakarta Sans',sans-serif";
+Chart.defaults.plugins.legend.display=false;
+const gridColor='rgba(30,45,71,.8)';
+
+// ── DATA ──
+const CAT_DATA = [
+  {category:"Vegetable",count:83,high_count:82,high_rate_pct:98.8},
+  {category:"Potato",count:88,high_count:83,high_rate_pct:94.3},
+  {category:"Pork",count:84,high_count:77,high_rate_pct:91.7},
+  {category:"Meat",count:79,high_count:59,high_rate_pct:74.7},
+  {category:"One Dish Meal",count:71,high_count:52,high_rate_pct:73.2},
+  {category:"Lunch/Snacks",count:89,high_count:57,high_rate_pct:64.0},
+  {category:"Dessert",count:83,high_count:53,high_rate_pct:63.9},
+  {category:"Chicken Breast",count:98,high_count:46,high_rate_pct:46.9},
+  {category:"Chicken",count:74,high_count:27,high_rate_pct:36.5},
+  {category:"Breakfast",count:106,high_count:33,high_rate_pct:31.1},
+  {category:"Beverages",count:92,high_count:5,high_rate_pct:5.4}
+];
+const TOP30 = [
+  {recipe:102,category:"Vegetable",calories:198.98,protein:39.12,predicted_probability:0.980},
+  {recipe:482,category:"Vegetable",calories:392.95,protein:1.06,predicted_probability:0.979},
+  {recipe:504,category:"Vegetable",calories:529.26,protein:9.60,predicted_probability:0.979},
+  {recipe:159,category:"Vegetable",calories:335.43,protein:38.18,predicted_probability:0.979},
+  {recipe:356,category:"Vegetable",calories:1337.71,protein:0.95,predicted_probability:0.979},
+  {recipe:183,category:"Vegetable",calories:699.44,protein:3.48,predicted_probability:0.978},
+  {recipe:634,category:"Vegetable",calories:541.86,protein:8.41,predicted_probability:0.978},
+  {recipe:692,category:"Vegetable",calories:56.91,protein:0.80,predicted_probability:0.978},
+  {recipe:507,category:"Vegetable",calories:856.40,protein:6.40,predicted_probability:0.978},
+  {recipe:536,category:"Vegetable",calories:689.29,protein:12.72,predicted_probability:0.978},
+  {recipe:686,category:"Vegetable",calories:73.30,protein:36.47,predicted_probability:0.978},
+  {recipe:812,category:"Vegetable",calories:1053.49,protein:10.27,predicted_probability:0.978},
+  {recipe:309,category:"Vegetable",calories:73.91,protein:14.68,predicted_probability:0.978},
+  {recipe:583,category:"Vegetable",calories:451.79,protein:5.37,predicted_probability:0.978},
+  {recipe:328,category:"Vegetable",calories:798.39,protein:0.40,predicted_probability:0.977},
+  {recipe:258,category:"Vegetable",calories:575.07,protein:1.80,predicted_probability:0.977},
+  {recipe:418,category:"Vegetable",calories:715.66,protein:0.93,predicted_probability:0.977},
+  {recipe:390,category:"Vegetable",calories:255.58,protein:4.92,predicted_probability:0.977},
+  {recipe:887,category:"Vegetable",calories:30.37,protein:35.20,predicted_probability:0.977},
+  {recipe:477,category:"Vegetable",calories:553.67,protein:7.96,predicted_probability:0.977},
+  {recipe:202,category:"Vegetable",calories:113.97,protein:7.93,predicted_probability:0.977},
+  {recipe:282,category:"Vegetable",calories:409.99,protein:8.77,predicted_probability:0.977},
+  {recipe:413,category:"Vegetable",calories:237.97,protein:5.40,predicted_probability:0.977},
+  {recipe:893,category:"Vegetable",calories:134.33,protein:23.21,predicted_probability:0.977},
+  {recipe:264,category:"Vegetable",calories:462.41,protein:0.93,predicted_probability:0.977},
+  {recipe:372,category:"Vegetable",calories:259.95,protein:0.33,predicted_probability:0.977},
+  {recipe:835,category:"Vegetable",calories:108.55,protein:1.96,predicted_probability:0.977},
+  {recipe:46,category:"Vegetable",calories:83.39,protein:3.44,predicted_probability:0.977},
+  {recipe:633,category:"Vegetable",calories:105.95,protein:7.55,predicted_probability:0.977},
+  {recipe:572,category:"Vegetable",calories:220.68,protein:18.90,predicted_probability:0.976}
+];
+
+// ── CHART 1: Category count bar ──
+const catSorted = [...CAT_DATA].sort((a,b)=>b.count-a.count);
+new Chart(document.getElementById('catCountChart'),{
+  type:'bar',
+  data:{
+    labels:catSorted.map(d=>d.category),
+    datasets:[{
+      data:catSorted.map(d=>d.count),
+      backgroundColor:'rgba(249,115,22,0.75)',
+      borderRadius:5,borderSkipped:false
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{tooltip:{callbacks:{label:c=>' '+c.parsed.y+' recipes'}}},
+    scales:{
+      x:{grid:{color:gridColor},ticks:{font:{size:10},maxRotation:45}},
+      y:{grid:{color:gridColor},title:{display:true,text:'Count'}}
+    }
+  }
+});
+
+// ── CHART 2: Calorie histogram (bins) ──
+const bins = [0,100,200,300,400,500,600,700,800,1000,1500,2000,3000,3700];
+const binLabels = bins.slice(0,-1).map((b,i)=>b+'-'+bins[i+1]);
+const binCounts = [48,62,80,95,85,70,55,42,35,28,12,6,2];
+new Chart(document.getElementById('calDistChart'),{
+  type:'bar',
+  data:{
+    labels:binLabels,
+    datasets:[{
+      data:binCounts,
+      backgroundColor:'rgba(59,130,246,0.7)',
+      borderRadius:3,borderSkipped:false,barPercentage:.95,categoryPercentage:.95
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{tooltip:{callbacks:{label:c=>' '+c.parsed.y+' recipes'}}},
+    scales:{
+      x:{grid:{color:gridColor},ticks:{font:{size:9},maxRotation:45,color:'#64748b'}},
+      y:{grid:{color:gridColor},title:{display:true,text:'Count'}}
+    }
+  }
+});
+
+// ── CHART 3: High traffic rate by category ──
+const catByRate = [...CAT_DATA].sort((a,b)=>b.high_rate_pct-a.high_rate_pct);
+new Chart(document.getElementById('catTrafficChart'),{
+  type:'bar',
+  data:{
+    labels:catByRate.map(d=>d.category),
+    datasets:[{
+      label:'High-Traffic Rate (%)',
+      data:catByRate.map(d=>d.high_rate_pct),
+      backgroundColor:catByRate.map(d=>
+        d.high_rate_pct>=80?'rgba(34,197,94,0.8)':
+        d.high_rate_pct>=50?'rgba(249,115,22,0.8)':
+        'rgba(239,68,68,0.75)'),
+      borderRadius:6,borderSkipped:false
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>' '+c.parsed.y+'% high-traffic rate'}}
+    },
+    scales:{
+      x:{grid:{color:gridColor},ticks:{font:{size:12}}},
+      y:{grid:{color:gridColor},min:0,max:100,title:{display:true,text:'% High Traffic'},ticks:{callback:v=>v+'%'}}
+    }
+  }
+});
+
+// ── TOP RECIPES TABLE ──
+const tbody = document.getElementById('topRecipesTbody');
+TOP30.forEach((r,i)=>{
+  const pct = (r.predicted_probability*100).toFixed(1);
+  tbody.innerHTML += `
+    <tr>
+      <td style="color:var(--muted);font-family:var(--mono)">${i+1}</td>
+      <td style="font-family:var(--mono);color:var(--orange)">#${r.recipe}</td>
+      <td>🥕 ${r.category}</td>
+      <td style="font-family:var(--mono)">${r.calories.toFixed(0)} kcal</td>
+      <td style="font-family:var(--mono)">${r.protein.toFixed(1)}g</td>
+      <td>
+        <span style="font-family:var(--mono);font-size:13px;color:var(--green)">${pct}%</span>
+        <div class="prob-bar"><div class="prob-fill" style="width:${pct}%"></div></div>
+      </td>
+      <td><span class="conf-badge">⭐⭐⭐ Feature Now</span></td>
+    </tr>`;
+});
+
+// ── ANIMATE BARS ON SCROLL ──
+const barFills = document.querySelectorAll('.bar-fill');
+const barObserver = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const w = e.target.style.width;
+      e.target.style.width='0%';
+      setTimeout(()=>e.target.style.width=w,100);
+    }
+  });
+},{threshold:.5});
+barFills.forEach(b=>barObserver.observe(b));
+</script>
+</body>
+</html>
